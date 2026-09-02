@@ -60,7 +60,7 @@ bounded by one group.
 ## Quick start
 
 ```powershell
-git clone https://github.com/<you>/youtube-audio-hf-pipeline
+git clone https://github.com/omarja12/youtube-audio-hf-pipeline
 cd youtube-audio-hf-pipeline
 
 python -m venv .venv
