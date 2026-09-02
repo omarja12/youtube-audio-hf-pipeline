@@ -4,7 +4,7 @@ Resumable, crash-safe collection of YouTube audio into a Hugging Face `datasets`
 AudioFolder — built for runs of several thousand videos from a single machine, on a
 connection that rate-limits, where the run **will** be interrupted.
 
-*[Français](README.fr.md) · [Engineering case study](docs/case-study.md)*
+*[Portfolio project page](https://omarja12.github.io/youtube-audio-hf-pipeline/) · [Français](README.fr.md) · [Engineering case study](docs/case-study.md)*
 
 ```
 ╭──────────────────── my-manifest ─────────────────────╮
