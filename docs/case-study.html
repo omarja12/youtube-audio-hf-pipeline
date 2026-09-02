@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Engineering case study: building a resilient YouTube audio dataset pipeline on one Windows laptop.">
+  <title>Case Study | YouTube Audio HF Pipeline</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .case-hero { max-width:1240px; margin:auto; padding:85px 5vw 95px; border-bottom:1px solid var(--line); }
+    .case-hero h1 { max-width:900px; margin:22px 0 28px; font-size:clamp(48px,7vw,94px); }
+    .case-hero .hero-lede { max-width:680px; }
+    .case-layout { max-width:1240px; margin:auto; padding:0 5vw 100px; display:grid; grid-template-columns:220px minmax(0,780px); gap:6vw; }
+    .case-nav { padding-top:70px; position:sticky; top:20px; align-self:start; font:11px 'DM Mono',monospace; text-transform:uppercase; letter-spacing:.08em; }
+    .case-nav a { display:block; color:var(--muted); text-decoration:none; padding:9px 0; border-bottom:1px solid var(--line); }.case-nav a:hover { color:var(--coral); }
+    .case-content { min-width:0; }.case-section { padding:75px 0 10px; border-bottom:1px solid var(--line); }.case-section:last-child { border:0; }
+    .case-section h2 { font-size:clamp(34px,4vw,58px); margin:16px 0 28px; }.case-section h3 { font-size:21px; margin:38px 0 10px; }.case-section p, .case-section li { color:var(--muted); font-size:17px; }.case-section ul { padding-left:22px; }.case-section li { margin:8px 0; }.case-section strong { color:var(--ink); }
+    .callout { margin:34px 0; padding:23px 25px; border-left:4px solid var(--coral); background:#e5e3d9; color:var(--ink); font-size:18px; }.callout p { margin:0; color:var(--ink); }
+    pre { overflow:auto; margin:30px 0; padding:23px; background:var(--ink); color:var(--acid); font:13px/1.7 'DM Mono',monospace; }.flow-large { margin:30px 0; padding:24px; background:var(--acid); color:var(--ink); font:12px/2 'DM Mono',monospace; overflow:auto; white-space:nowrap; }
+    .case-table { width:100%; border-collapse:collapse; margin:25px 0 35px; font-size:14px; }.case-table th, .case-table td { padding:14px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }.case-table th { color:var(--muted); font:10px 'DM Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }.case-table td { color:var(--muted); }.case-table strong { color:var(--ink); }
+    .result-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; margin-top:35px; background:var(--line); }.result { padding:22px; background:var(--paper); }.result strong { display:block; font-size:32px; color:var(--coral); }.result span { color:var(--muted); font:11px 'DM Mono',monospace; text-transform:uppercase; }
+    @media (max-width:700px) { .case-hero { padding-top:60px; }.case-layout { display:block; }.case-nav { position:static; padding-top:28px; display:flex; flex-wrap:wrap; gap:0 18px; }.case-nav a { border:0; }.case-section { padding-top:60px; }.case-section p, .case-section li { font-size:16px; }.result-grid { grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="index.html">OMAR JA <span>/ ENGINEERING NOTE</span></a><a class="github-link" href="https://github.com/omarja12/youtube-audio-hf-pipeline">View on GitHub <span aria-hidden="true">&#8599;</span></a></header>
+  <main>
+    <section class="case-hero"><p class="eyebrow">Engineering case study / 2026</p><h1>Collecting thousands of videos from one machine.</h1><p class="hero-lede">What happens when a data pipeline has to survive rate limits, interrupted sessions, an adversarial dependency, and a Windows laptop that wants to sleep?</p></section>
+    <div class="case-layout">
+      <nav class="case-nav" aria-label="Case study sections"><a href="#job">The job</a><a href="#failure">Failure modes</a><a href="#interruptions">Interruption</a><a href="#throughput">Throughput</a><a href="#runtime">Runtime</a><a href="#results">Results</a></nav>
+      <article class="case-content">
+        <section class="case-section" id="job"><p class="eyebrow">01 / Context</p><h2>The job was simple.<br><em>The constraints were not.</em></h2><p>Build a speech dataset from a manifest of several thousand YouTube videos: download the audio, package it in AudioFolder layout, and publish it to the Hugging Face Hub.</p><ul><li>One Windows laptop.</li><li>A shared connection that YouTube rate-limits within about an hour.</li><li>No way to leave the machine running unattended overnight.</li></ul><p>Everything in the design follows from those three facts. Reliability is not only an operational concern here; it is a data-quality guarantee.</p></section>
+        <section class="case-section" id="failure"><p class="eyebrow">02 / The failure that lies</p><h2>“Video unavailable” is not a diagnosis.</h2><p>YouTube returns the same message for a deleted video and a temporary rate limit. The first version treated it as permanent, quietly removing good videos from the job whenever the connection was throttled.</p><pre>if any(marker in lowered for marker in BLOCKED_MARKERS):
+    return Outcome.BLOCKED  # the IP, not the video
+if any(marker in lowered for marker in GONE_MARKERS):
+    return Outcome.GONE     # unambiguous and permanent
+return Outcome.RETRY       # ambiguity stays recoverable</pre><p>The classifier checks blocked markers first, accepts only unambiguous video-specific phrases as gone, and retries everything else. A retry costs seconds. A wrong permanent failure can cost data forever.</p><div class="callout"><p>The classifier is pure logic with focused tests, including <strong>test_bare_video_unavailable_is_retry_not_gone</strong>. The test names the design decision so a future “cleanup” cannot quietly reintroduce the bug.</p></div></section>
+        <section class="case-section" id="interruptions"><p class="eyebrow">03 / Interruption is a feature</p><h2>Stopping must be cheap.</h2><p>The run only operated in daytime sessions, and interruptions were inevitable. The goal was never to prevent every stop. It was to make every stop safe.</p><div class="flow-large">RESET &rarr; DOWNLOAD &rarr; PACKAGE &rarr; UPLOAD &rarr; COMMIT &rarr; RECORD &rarr; DELETE LOCAL</div><p>A video enters the running <strong>metadata.csv</strong> only after its Hub commit succeeds. That ordering gives every crash a safe outcome:</p><table class="case-table"><thead><tr><th>Killed during</th><th>Next run</th></tr></thead><tbody><tr><td>Download</td><td>Partial local files are discarded; the group is redone.</td></tr><tr><td>Upload</td><td>No commit means nothing is recorded; the group is redone.</td></tr><tr><td>After commit</td><td>The group is recorded and skipped next time.</td></tr></tbody></table><p>There is no state in which a video is recorded but absent. Uploaded-but-unrecorded is merely wasteful and recoverable; recorded-but-missing would be a data integrity failure.</p></section>
+        <section class="case-section" id="throughput"><p class="eyebrow">04 / The tuning trap</p><h2>Faster settings produced less data.</h2><p>Parallelism looked like the obvious lever. It was also a trap: exceeding what the remote service tolerates creates fake failures before it creates useful throughput.</p><table class="case-table"><thead><tr><th>Workers / delay</th><th>Observed</th></tr></thead><tbody><tr><td>8 / 0.5s</td><td>Fast for ten minutes, then good videos began reporting unavailable.</td></tr><tr><td>6 / 1s</td><td>Same failure pattern, only slower to arrive.</td></tr><tr><td><strong>4 / 3s</strong></td><td><strong>Sustained for hours.</strong></td></tr></tbody></table><p>The remote service sets the real throughput ceiling. Good pipeline settings are measured against data quality, not only the number on a progress bar.</p></section>
+        <section class="case-section" id="runtime"><p class="eyebrow">05 / Dependencies and the machine</p><h2>The environment is part of the system.</h2><h3>Cookies and JavaScript</h3><p>Anonymous bulk access is blocked quickly. On current Windows, browser cookie encryption also makes the obvious browser-import path unreliable. The working configuration uses an exported Netscape cookie file and Deno for YouTube’s JavaScript challenge.</p><pre>def child_env(config):
+    env = os.environ.copy()
+    if config.js_runtime_bin and config.js_runtime_bin.exists():
+        env["PATH"] = str(config.js_runtime_bin) + os.pathsep + env.get("PATH", "")
+    return env</pre><p>The runtime is injected into the downloader subprocess, keeping the parent environment untouched and making the dependency visible at the boundary.</p><h3>Keeping Windows awake</h3><p>A network-heavy process looks idle to Windows. The pipeline declares its power requirement for the duration of the run and releases it on exit, rather than mutating the user’s global power plan.</p><div class="callout"><p>The guard does not override a closed laptop lid. The documentation says so plainly: honest limits are part of a reliable tool.</p></div></section>
+        <section class="case-section" id="results"><p class="eyebrow">06 / Results</p><h2>A truthful dataset is the result.</h2><div class="result-grid"><div class="result"><strong>~9,000</strong><span>videos in manifest</span></div><div class="result"><strong>&lt;1%</strong><span>permanently unavailable</span></div><div class="result"><strong>4/min</strong><span>sustained rate</span></div><div class="result"><strong>46</strong><span>network-free tests</span></div></div><p style="margin-top:40px">The next improvement would be a reconciliation command that checks the Hub directly, plus structured event logs instead of raw downloader output. The core ordering stays: progress is permanent only after the commit.</p><p><a class="button button-primary" href="index.html">Back to project overview <span aria-hidden="true">&#8594;</span></a></p></section>
+      </article>
+    </div>
+  </main>
+  <footer class="site-footer"><span>OMAR JA / YOUTUBE AUDIO HF PIPELINE</span><span>2026</span></footer>
+</body>
+</html>
