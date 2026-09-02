@@ -1,0 +1,24 @@
+[project]
+name = "youtube-audio-hf-pipeline"
+version = "1.0.0"
+description = "Resumable batch collection of YouTube audio into Hugging Face datasets"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",   # long lines are caught by the formatter, not worth failing CI over
+    "B008",   # argparse/dataclass defaults are fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]

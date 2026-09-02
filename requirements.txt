@@ -1,0 +1,10 @@
+# yt-dlp[default] pulls the extra HTTP backends (curl_cffi, websockets). Plain `yt-dlp`
+# installs and then fails on real YouTube traffic, so the extra is not optional.
+yt-dlp[default]>=2026.8.19
+
+# Executes YouTube's JavaScript challenge. Without it every download dies on signature
+# extraction. Also needs a JS runtime (Deno) on PATH - see the README.
+yt-dlp-ejs>=0.2.0
+
+huggingface_hub>=0.35.0
+rich>=13.7.0

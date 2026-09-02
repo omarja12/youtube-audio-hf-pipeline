@@ -1,0 +1,24 @@
+{
+  "repo_id": "your-username/your-audio-dataset",
+  "manifest": "examples/sample-manifest.jsonl",
+  "workspace": "workspace",
+  "private": true,
+  "batch": 4,
+  "max_retry": 3,
+
+  "_comment_cookies": "Netscape cookies.txt exported from a signed-in browser. Optional, but YouTube blocks anonymous bulk downloads quickly. NEVER commit this file.",
+  "cookies": "cookies.txt",
+
+  "_comment_js_runtime": "Directory containing a Deno binary. YouTube serves a JS challenge yt-dlp must execute; without a runtime on PATH every download fails on signature extraction.",
+  "js_runtime_bin": null,
+
+  "_comment_download": "Tuned against YouTube, not against your machine. 4 workers with a 3s delay is the ceiling before YouTube starts returning fake 'unavailable' for good videos - raising these yields LESS data, not more.",
+  "download": {
+    "workers": 4,
+    "sleep_seconds": 3,
+    "retries": 2,
+    "socket_timeout": 120,
+    "max_consecutive_network_errors": 6,
+    "force_ipv4": true
+  }
+}

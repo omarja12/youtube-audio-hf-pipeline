@@ -1,0 +1,31 @@
+# ---- secrets: never commit these -------------------------------------------
+cookies.txt
+*cookies*.txt
+.env
+config.json          # your real config; config.example.json is the committed template
+
+# ---- run artefacts ----------------------------------------------------------
+workspace/
+downloads/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.log
+
+# ---- python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# ---- editors / os -----------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
